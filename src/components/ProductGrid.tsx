@@ -94,12 +94,49 @@ const sampleProducts: ProductCategory[] = [
   }
 ];
 
+import { useStore } from '../context/StoreContext';
+
 const ProductGrid: React.FC<ProductGridProps> = ({ designDetail, onCartUpdate }) => {
-  const [allProducts, setAllProducts] = useState<ProductCategory[]>(sampleProducts);
+  const { store } = useStore();
+  const [allProducts, setAllProducts] = useState<ProductCategory[]>([]);
   const [searchText, setSearchText] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (!store?.id) return;
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/frontend/products?store_id=${store.id}`);
+        const result = await response.json();
+        if (result.data) {
+          // Map API response to ProductCategory interface
+          const categories: ProductCategory[] = result.data.categories.map((cat: any) => ({
+            heading: cat.heading,
+            crackers: result.data.products
+              .filter((p: any) => p.category?.id === cat.id)
+              .map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                imageUrl: p.imageUrl,
+                unit: p.unit,
+                isBestSeller: p.isBestSeller,
+                quantity: 0
+              }))
+          }));
+          setAllProducts(categories);
+        }
+      } catch (err) {
+        console.error("Failed to fetch products:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProducts();
+  }, [store?.id]);
 
   const getDiscountPrice = (price: number): number => {
     return Math.round((price * (designDetail?.percentage || 70)) / 100);
